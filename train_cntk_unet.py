@@ -7,12 +7,16 @@ from cntk.device import gpu, try_set_default_device
 from PIL import Image
 from PIL import ImageOps
 import cntk_unet
-
+import time
 try_set_default_device(gpu(0))
 print ("-------------------------")
 def train(AnsPath, BasePath, list, use_existing=False):
+    testimg= Image.open(AnsPath+"/"+list[0])
+    testimg = testimg.resize((256,512))
+    testimg = ImageOps.grayscale(testimg)
 
-    test_image = np.array(Image.open(AnsPath+"\\"+list[0]))
+    test_image = np.array(testimg)#.transpose(2,0,1)
+    test_image = np.array([test_image])
     shape = test_image.shape
     data_size = test_image.shape[0]
 
@@ -22,7 +26,7 @@ def train(AnsPath, BasePath, list, use_existing=False):
     z = cntk_unet.create_model(x)
     dice_coef = cntk_unet.dice_coefficient(z, y)
 
-    checkpoint_file = "cntk-unet.dnn"
+    checkpoint_file = "/home/ys/PycharmProjects/cntk-unet/cntk-unet.dnn"
     if use_existing:
         z.load_model(checkpoint_file)
 
@@ -32,30 +36,36 @@ def train(AnsPath, BasePath, list, use_existing=False):
     trainer = C.Trainer(z, (-dice_coef, -dice_coef), C.learners.adam(z.parameters, lr=lr, momentum=momentum))
 
     # Get minibatches of training data and perform model training
-    minibatch_size = 2
-    num_epochs = 1
+    minibatch_size = 20
+    num_epochs = 2000
     num_mb_per_epoch = int(data_size / minibatch_size)
 
-
+    sw = time.time()
     for e in range(0, num_epochs):
         for i in range(0, num_mb_per_epoch):
+            img_y = Image.open(AnsPath+"/"+list[i * minibatch_size:(i + 1) * minibatch_size])
+            img_x = Image.open(BasePath+"/"+list[i * minibatch_size:(i + 1) * minibatch_size])
+            img_x = img_x.resize((256,512))
+            img_y = img_y.resize((256,512))
+            img_y = ImageOps.grayscale(img_y)
+            img_x = ImageOps.grayscale(img_x)
 
-            img_y =Image.open(AnsPath+"\\"+list[i * minibatch_size:(i + 1) * minibatch_size])
-            img_x =Image.open(BasePath+"\\"+list[i * minibatch_size:(i + 1) * minibatch_size])
-            
-            img_y= ImageOps.grayscale(img_y)
-            img_x= ImageOps.grayscale(img_x)
+            training_y = (np.array(img_y))#.transpose(2,0,1)
+            training_x = (np.array(img_x))#.transpose(2,0,1)
+            training_y = (np.array(training_y))
+            training_x = (np.array(training_x))
 
-            training_y = np.array(img_y)
-            training_x = np.array(img_x)
             trainer.train_minibatch({x: training_x, y: training_y})
 
-        trainer.save_checkpoint(checkpoint_file)
+        if num_epochs%500==0:
+            trainer.save_checkpoint("/home/ys/PycharmProjects/cntk-unet/cntk-unet"+str(e)+".dnn")
+            print ("epoch:"+str(e))
+            print ("time passed:"+str(time.time()-sw))
 
     return trainer
 
 if __name__ == '__main__':
-    AnsPath  = "E:\\ver20170413\\15B24\\Red_half"
-    BasePath = "E:\\ver20170413\\15B24\\trn_half"
+    AnsPath  = "/home/ys/Share/7_DL_model_set/ver20170413/15Z32/DL_Ans_half"
+    BasePath = "/home/ys/Share/7_DL_model_set/ver20170413/15Z32/trn_half"
     filelist = os.listdir(AnsPath)
     train(AnsPath, BasePath, filelist, False)

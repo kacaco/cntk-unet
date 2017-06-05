@@ -6,7 +6,7 @@ from cntk.learners import sgd, learning_rate_schedule, UnitType
 from cntk.device import gpu, try_set_default_device
 from PIL import Image
 from PIL import ImageOps
-from cntk.io import transforms
+import cntk.io.transforms as xforms
 import cntk
 from cntk import cntk_py
 from cntk.layers import Convolution, MaxPooling, Dense
@@ -55,6 +55,6 @@ r = C.reshape(xy, (x.shape[0], x.shape[1] * 2, x.shape[2] * 2))
 
 print(r.shape)ssss
 """
-t = x.crop(crop_type ='center', crop_size=(2,2))
+t = xforms.crop(crop_type ='center', crop_size=(2,2))
 #t = cntk.io.transforms.crop(crop_type ='center', crop_size=(2,2))(x)
 print(x.shape)
