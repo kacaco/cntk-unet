@@ -27,7 +27,7 @@ def UpSampling2D(x):
     return r
 
 def create_model(input):
-    print (input.shape)
+    #print (input.shape)
     conv1 = Convolution((3,3), 64, init=glorot_uniform(), activation=relu, pad=True)(input)
     conv1 = Convolution((3,3), 64, init=glorot_uniform(), activation=relu, pad=True)(conv1)
     pool1 = MaxPooling((2,2), strides=(2,2))(conv1)
@@ -46,7 +46,7 @@ def create_model(input):
 
     conv5 = Convolution((3,3), 1024, init=glorot_uniform(), activation=relu, pad=True)(pool4)
     conv5 = Convolution((3,3), 1024, init=glorot_uniform(), activation=relu, pad=True)(conv5)
-    """
+
     print("conv1"+str(conv1.shape))
     print("pool1"+str(pool1.shape))
     print("conv2"+str(conv2.shape))
@@ -56,26 +56,30 @@ def create_model(input):
 
     print("conv4"+str(conv4.shape))
     print("pool4"+str(pool4.shape))
-    """
-    #print("conv5"+str(conv5.shape))
+
+    print("conv5"+str(conv5.shape))
     up5 =UpSampling2D(conv5)
-    #print("upsamplingC5"+str(up5.shape))
+    print("upsamplingC5"+str(up5.shape))
 
 
-    #print("upsamplingC5"+str(C.reshape(up5,conv4.shape[]).shape))
+    #print("upsamplingC5"+str(C
+    # .reshape(up5,conv4.shape[]).shape))
     ##some how we need crop this conv4
     #a = cntk.io.transforms.crop(crop_type='center', crop_size=(2, 2))(conv4)
     #print("crop" + str(a))
 
-    up6 = C.splice(UpSampling2D(conv5), conv4, axis=0)
+    ##up7 = C.splice(UpSampling2D(conv4), conv3, axis=0)
     #print("up6"+str(up6))
 
-    conv6 = Convolution((3,3), 256, init=glorot_uniform(), activation=relu, pad=True)(up6)
+    conv6 = Convolution((3,3), 256, init=glorot_uniform(), activation=relu, pad=True)(up5)
     conv6 = Convolution((3,3), 256, init=glorot_uniform(), activation=relu, pad=True)(conv6)
-
+    print("conv6"+str(conv6.shape))
+    print("up6"+str((UpSampling2D(conv6)).shape))
     up7 = C.splice(UpSampling2D(conv6), conv3, axis=0)
     conv7 = Convolution((3,3), 128, init=glorot_uniform(), activation=relu, pad=True)(up7)
     conv7 = Convolution((3,3), 128, init=glorot_uniform(), activation=relu, pad=True)(conv7)
+    print("conv7"+str(conv7.shape))
+    print("up8"+str((UpSampling2D(conv7)).shape))
 
     up8 = C.splice(UpSampling2D(conv7), conv2, axis=0)
     conv8 = Convolution((3,3), 64, init=glorot_uniform(), activation=relu, pad=True)(up8)
