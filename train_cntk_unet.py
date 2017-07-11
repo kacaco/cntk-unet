@@ -6,14 +6,16 @@ from cntk.learners import sgd, learning_rate_schedule, UnitType
 from cntk.device import gpu, try_set_default_device
 from PIL import Image
 from PIL import ImageOps
-import cntk_unet512 as cntk_unet
+import cntk_unet256 as cntk_unet
 import time
 try_set_default_device(gpu(0))
 print ("-------------------------")
 
 def Img2CntkImg(path, resizeX, resizeY):
     img = Image.open(path)
-    img = img.resize((256, 512))
+    #img = img.resize((256, 512))#width, height
+    img = img.resize((300, 256))#width, height
+
     img = ImageOps.grayscale(img)
 
 
@@ -27,9 +29,10 @@ def Img2CntkImg(path, resizeX, resizeY):
 def train(AnsPath, TrnPath, list, use_existing=False):
 
     # Get minibatches of training data and perform model training
-    minibatch_size = 10
+    minibatch_size = 25
     num_epochs = 1000
-    test = np.zeros((1, 512, 256))
+    #test = np.zeros((1, 512, 256))
+    test = np.zeros((1, 256, 300))
     shape = test.shape
     print("test image shape:"+str(test.shape))
 
@@ -40,9 +43,11 @@ def train(AnsPath, TrnPath, list, use_existing=False):
     z = cntk_unet.create_model(x)
     dice_coef = cntk_unet.dice_coefficient(z, y)
 
+    '''
     checkpoint_file = "/home/ys/PycharmProjects/cntk-unet/cntk-unet.dnn"
     if use_existing:
         z.load_model(checkpoint_file)
+    '''
 
     # Prepare model and trainer
     lr = learning_rate_schedule(0.00001, UnitType.sample)
@@ -64,16 +69,16 @@ def train(AnsPath, TrnPath, list, use_existing=False):
         for i in range(0, file_num):
             #print(i%minibatch_size)
             if i%minibatch_size ==0:
-                training_y = np.array([Img2CntkImg(AnsPath + "/" + list[i], 256, 512)])
-                training_x = np.array([Img2CntkImg(TrnPath + "/" + list[i], 256, 512)])
+                training_y = np.array([Img2CntkImg(AnsPath + "/" + list[i], 300, 256)])
+                training_x = np.array([Img2CntkImg(TrnPath + "/" + list[i], 300, 256)])
                 #print("[1]"+str(training_y.shape))
             elif i%minibatch_size >0 and i%minibatch_size<minibatch_size-1:
-                training_y = np.append(training_y,np.array([Img2CntkImg(AnsPath+"/"+list[i], 256, 512)]),axis=0)
-                training_x = np.append(training_x,np.array([Img2CntkImg(TrnPath+"/"+list[i], 256, 512)]),axis=0)
+                training_y = np.append(training_y,np.array([Img2CntkImg(AnsPath+"/"+list[i], 300, 256)]),axis=0)
+                training_x = np.append(training_x,np.array([Img2CntkImg(TrnPath+"/"+list[i], 300, 256)]),axis=0)
                 #print("[2]"+str(training_y.shape))
             elif i%minibatch_size==minibatch_size-1:
-                training_y = np.append(training_y,np.array([Img2CntkImg(AnsPath+"/"+list[i], 256, 512)]),axis=0)
-                training_x = np.append(training_x,np.array([Img2CntkImg(TrnPath+"/"+list[i], 256, 512)]),axis=0)
+                training_y = np.append(training_y,np.array([Img2CntkImg(AnsPath+"/"+list[i], 300, 256)]),axis=0)
+                training_x = np.append(training_x,np.array([Img2CntkImg(TrnPath+"/"+list[i], 300, 256)]),axis=0)
                 trainer.train_minibatch({x: training_x, y: training_y})
                 #print("[3]"+str(training_y.shape))
                 #print("###################")
@@ -86,7 +91,7 @@ def train(AnsPath, TrnPath, list, use_existing=False):
         training_errors = []
 
         if e%50==0:
-            trainer.save_checkpoint("/home/ys/PycharmProjects/cntk-unet/batch15_cntk-unet512_Zraw_"+str(e)+".dnn")
+            trainer.save_checkpoint("/home/ys/PycharmProjects/cntk-unet/batch15_cntk-unet256_Zraw_"+str(e)+".dnn")
             print ("epoch:"+str(e))
             print ("time passed:"+str(time.time()-sw))
 
