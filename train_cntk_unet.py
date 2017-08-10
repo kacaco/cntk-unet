@@ -4,6 +4,7 @@ import numpy as np
 import cntk as C
 from cntk.learners import sgd, learning_rate_schedule, UnitType
 from cntk.device import gpu, try_set_default_device
+from cntk.layers import Dense, Sequential
 from PIL import Image
 from PIL import ImageOps
 import cntk_unet as cntk_unet
@@ -12,42 +13,45 @@ import sys
 import argparse
 import random
 import re
-#from docopt import docopt
+import cntk.losses
+
+# from docopt import docopt
 
 try_set_default_device(gpu(0))
-print ("-------------------------")
+print("-------------------------")
+
 
 def Img2CntkImg(path, resizeX, resizeY):
     img = Image.open(path)
-    #img = img.resize((256, 512))#width, height
-    img = img.resize((resizeX, resizeY))#width, height
+    # img = img.resize((256, 512))#width, height
+    img = img.resize((resizeX, resizeY))  # width, height
 
     img = ImageOps.grayscale(img)
-
 
     training_img = np.array(img)
     training_img = np.array([training_img])
     training_img = training_img.astype(np.float32)
-    
 
     del img
     return training_img
 
-def train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, epc, imglist, use_existing=False):
 
+def train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, epc, imglist, use_existing=False):
     # Get minibatches of training data and perform model training
     minibatch_size = bs
     num_epochs = epc
-    #test = np.zeros((1, 512, 256))
+    # test = np.zeros((1, 512, 256))
     test = np.zeros((1, imgY, imgX))
     shape = test.shape
-    print("test image shape:"+str(test.shape))
+    print("test image shape:" + str(test.shape))
 
     x = C.input_variable(shape)
     y = C.input_variable(shape)
 
     z = cntk_unet.create_model(x)
-    dice_coef = cntk_unet.dice_coefficient(z, y)
+    #dice_coef = cntk_unet.dice_coefficient(z, y)
+    ll = C.Logistic(z, y)
+    ce = C.CrossEntropy(z, y)
     '''
     checkpoint_file = "/home/ys/PycharmProjects/cntk-unet/cntk-unet.dnn"
     if use_existing:
@@ -57,72 +61,67 @@ def train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, e
     # Prepare model and trainer
     lr = learning_rate_schedule(0.00001, UnitType.sample)
     momentum = C.learners.momentum_as_time_constant_schedule(0)
-    trainer = C.Trainer(z, (-dice_coef, -dice_coef), C.learners.adam(z.parameters, lr=lr, momentum=momentum))
+    trainer = C.Trainer(z, (ll, ce), C.learners.adam(z.parameters, lr=lr, momentum=momentum))
 
     file_num = len(imglist)
 
     training_errors = []
     test_errors = []
 
-
-
-
     sw = time.time()
     for e in range(0, num_epochs):
         pattern = "[A-Z]"
-        num =0
+        num = 0
         for i in range(0, file_num):
 
-            #http://qiita.com/wanwanland/items/ce272419dde2f95cdabc
-            match=re.search(pattern, imglist[i])
-            #print("matchgroup:"+match.group())
-            if match.group()=="A":
-                ansfile = TrnPath +r"/ans/Amode/"+ans_target+r"/"+imglist[i]
-                trnfile = TrnPath +r"/raw/Amode/"+trn_target+r"/"+imglist[i]
-            if match.group()=="B":
-                ansfile = TrnPath +r"/ans/Bmode/"+ans_target+r"/"+imglist[i]
-                trnfile = TrnPath +r"/raw/Bmode/"+trn_target+r"/"+imglist[i]
-            if match.group()=="Z":
-                ansfile = TrnPath +r"/ans/Zmode/"+ans_target+r"/"+imglist[i]
-                trnfile = TrnPath +r"/raw/Zmode/"+trn_target+r"/"+imglist[i]
-            #print(ansfile)
-            #print(trnfile)
+            # http://qiita.com/wanwanland/items/ce272419dde2f95cdabc
+            match = re.search(pattern, imglist[i])
+            # print("matchgroup:"+match.group())
+            if match.group() == "A":
+                ansfile = TrnPath + r"/ans/Amode/" + ans_target + r"/" + imglist[i]
+                trnfile = TrnPath + r"/raw/Amode/" + trn_target + r"/" + imglist[i]
+            if match.group() == "B":
+                ansfile = TrnPath + r"/ans/Bmode/" + ans_target + r"/" + imglist[i]
+                trnfile = TrnPath + r"/raw/Bmode/" + trn_target + r"/" + imglist[i]
+            if match.group() == "Z":
+                ansfile = TrnPath + r"/ans/Zmode/" + ans_target + r"/" + imglist[i]
+                trnfile = TrnPath + r"/raw/Zmode/" + trn_target + r"/" + imglist[i]
+            # print(ansfile)
+            # print(trnfile)
 
-            if i%minibatch_size ==0:
+            if i % minibatch_size == 0:
                 training_y = np.array([Img2CntkImg(ansfile, imgX, imgY)])
                 training_x = np.array([Img2CntkImg(trnfile, imgX, imgY)])
 
-            elif i%minibatch_size > 0 and i%minibatch_size < minibatch_size-1:
+            elif i % minibatch_size > 0 and i % minibatch_size < minibatch_size - 1:
                 training_y = np.append(training_y, np.array([Img2CntkImg(ansfile, imgX, imgY)]), axis=0)
                 training_x = np.append(training_x, np.array([Img2CntkImg(trnfile, imgX, imgY)]), axis=0)
 
-            elif i%minibatch_size==minibatch_size-1:
+            elif i % minibatch_size == minibatch_size - 1:
                 training_y = np.append(training_y, np.array([Img2CntkImg(ansfile, imgX, imgY)]), axis=0)
                 training_x = np.append(training_x, np.array([Img2CntkImg(trnfile, imgX, imgY)]), axis=0)
                 trainer.train_minibatch({x: training_x, y: training_y})
-                #print("###################")
-                if i == num_epochs-1:
+                # print("###################")
+                if i == num_epochs - 1:
                     # Measure training error
                     training_errors.append(trainer.test_minibatch({x: training_x, y: training_y}))
-                    print("Epoch:" + str(e) + "  Error:" + str(np.mean(training_errors)) + "  time:" + str(time.time() - sw))
+                    print("Epoch:" + str(e) + "  Error:" + str(np.mean(training_errors)) + "  time:" + str(
+                        time.time() - sw))
 
-        #print("epoch:" + str(e) + "  error:"+str(np.mean(training_errors))+"  time:" + str(time.time()-sw))
-        
+        # print("epoch:" + str(e) + "  error:"+str(np.mean(training_errors))+"  time:" + str(time.time()-sw))
 
-        if e%50==0:
-            trainer.save_checkpoint(SavePath +r"/"+ savename+r"_"+str(e)+".dnn")
-            print ("epoch:"+str(e))
-            print ("time passed:"+str(time.time()-sw))
+
+        if e % 50 == 0:
+            trainer.save_checkpoint(SavePath + r"/" + savename + r"_" + str(e) + ".dnn")
+            print("epoch:" + str(e))
+            print("time passed:" + str(time.time() - sw))
             training_errors = []
 
     return trainer
 
 
-
-
 if __name__ == '__main__':
-
-    #http://ja.pymotw.com/2/argparse/
+    # http://ja.pymotw.com/2/argparse/
     parser = argparse.ArgumentParser()
     parser.add_argument('-dir', action='store', dest='dir', required=True, help="Read directly")
     parser.add_argument('-sdir', action='store', dest='sdir', required=True, help='where you want to save model')
@@ -131,40 +130,43 @@ if __name__ == '__main__':
     parser.add_argument('-x', action='store', dest='x', type=int, required=True, help='Store image width number')
     parser.add_argument('-y', action='store', dest='y', type=int, required=True, help='Store image height number')
 
-    parser.add_argument('-anstgt', action='store', dest='anstgt', required=True, help='Deep learning answer target. Ex.RB, red, White, etc...')
-    parser.add_argument('-trntgt', action='store', dest='trntgt', default="raw", help='Deep learning raw target. Ex.dns, raw, etc...')
+    parser.add_argument('-anstgt', action='store', dest='anstgt', required=True,
+                        help='Deep learning answer target. Ex.RB, red, White, etc...')
+    parser.add_argument('-trntgt', action='store', dest='trntgt', default="raw",
+                        help='Deep learning raw target. Ex.dns, raw, etc...')
 
     parser.add_argument('-bs', action='store', dest='bs', type=int, required=True, help='Batch Size')
     parser.add_argument('-epc', action='store', dest='epc', type=int, required=True, help='Total Epoc')
 
     results = parser.parse_args()
-    #filelist = os.listdir(AnsPath)
-    #print(len(filelist))
+    # filelist = os.listdir(AnsPath)
+    # print(len(filelist))
 
-    #print (results.ans_dir+'/ans/Amode/'+results.tgt)
-    filelist = os.listdir(results.dir+'/ans/Amode/'+results.anstgt)
-    filelist.extend(os.listdir(results.dir+'/ans/Bmode/'+results.anstgt))
-    filelist.extend(os.listdir(results.dir+'/ans/Zmode/'+results.anstgt))
+    # print (results.ans_dir+'/ans/Amode/'+results.tgt)
+    filelist = os.listdir(results.dir + '/ans/Amode/' + results.anstgt)
+    filelist.extend(os.listdir(results.dir + '/ans/Bmode/' + results.anstgt))
+    filelist.extend(os.listdir(results.dir + '/ans/Zmode/' + results.anstgt))
     random.shuffle(filelist)
-    #print(results.dir+'/raw/Amode/'+results.trntgt+"/8A24_160914150823_25.bmp")
-    #print (filelist)
-    #print(len(filelist))
+    # print(results.dir+'/raw/Amode/'+results.trntgt+"/8A24_160914150823_25.bmp")
+    # print (filelist)
+    # print(len(filelist))
 
-    print ('ans directory     =', results.dir)
-    print ('save directory    =', results.sdir)
-    print ('save model name   =', results.savename)
-    print ('training target   =', results.trntgt)
-    print ('answer target     =', results.anstgt)
+    print('ans directory     =', results.dir)
+    print('save directory    =', results.sdir)
+    print('save model name   =', results.savename)
+    print('training target   =', results.trntgt)
+    print('answer target     =', results.anstgt)
 
-    print ('image width       =', results.x)
-    print ('image height      =', results.y)
-    print ('Batch size        =', results.bs)
-    print ('Total Epocs       =', results.epc)
+    print('image width       =', results.x)
+    print('image height      =', results.y)
+    print('Batch size        =', results.bs)
+    print('Total Epocs       =', results.epc)
 
-    #start training
-    #train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, epc, imglist, use_existing=False):
-    train(results.dir, results.sdir, results.savename, results.x, results.y, results.anstgt, results.trntgt, results.bs, results.epc, filelist, False)
-    print ("finish all training")
+    # start training
+    # train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, epc, imglist, use_existing=False):
+    train(results.dir, results.sdir, results.savename, results.x, results.y, results.anstgt, results.trntgt, results.bs,
+          results.epc, filelist, False)
+    print("finish all training")
 
     '''
     print (trainer)
