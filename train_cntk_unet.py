@@ -59,7 +59,7 @@ def train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, e
     '''
 
     # Prepare model and trainer
-    lr = learning_rate_schedule(0.00001, UnitType.sample)
+    lr = learning_rate_schedule(0.0001, UnitType.sample)
     momentum = C.learners.momentum_as_time_constant_schedule(0)
     trainer = C.Trainer(z, (ll, ce), C.learners.adam(z.parameters, lr=lr, momentum=momentum))
 
