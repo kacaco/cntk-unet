@@ -95,7 +95,7 @@ def create_model(input):
 
 def dice_coefficient(x, y):
     # https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
-    intersection = C.reduce_sum(x * y)
+    intersection = C.reduce_sum(x - y)
 
     return 2 * intersection / (C.reduce_sum(x) + C.reduce_sum(y))
 
