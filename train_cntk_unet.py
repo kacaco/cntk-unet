@@ -49,9 +49,9 @@ def train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, e
     y = C.input_variable(shape)
 
     z = cntk_unet.create_model(x)
-    #dice_coef = cntk_unet.dice_coefficient(z, y)
-    ll = C.Logistic(z, y)
-    ce = C.CrossEntropy(z, y)
+    dice_coef = cntk_unet.dice_coefficient(z, y)
+    #ll = C.Logistic(z, y)
+    #ce = C.CrossEntropy(z, y)
     '''
     checkpoint_file = "/home/ys/PycharmProjects/cntk-unet/cntk-unet.dnn"
     if use_existing:
@@ -61,7 +61,7 @@ def train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, e
     # Prepare model and trainer
     lr = learning_rate_schedule(0.0001, UnitType.sample)
     momentum = C.learners.momentum_as_time_constant_schedule(0)
-    trainer = C.Trainer(z, (ll, ce), C.learners.adam(z.parameters, lr=lr, momentum=momentum))
+    trainer = C.Trainer(z, (dice_coef, dice_coef), C.learners.adam(z.parameters, lr=lr, momentum=momentum))
 
     file_num = len(imglist)
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
                         help='Deep learning raw target. Ex.dns, raw, etc...')
 
     parser.add_argument('-bs', action='store', dest='bs', type=int, required=True, help='Batch Size')
-    parser.add_argument('-epc', action='store', dest='epc', type=int, required=True, help='Total Epoc')
+    parser.add_argument('-epc', action='store', dest='epc', type=int, required=True, help='Total Epoch')
 
     results = parser.parse_args()
     # filelist = os.listdir(AnsPath)
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     print('image width       =', results.x)
     print('image height      =', results.y)
     print('Batch size        =', results.bs)
-    print('Total Epocs       =', results.epc)
+    print('Total Epochs       =', results.epc)
 
     # start training
     # train(TrnPath, SavePath, savename, imgX, imgY, ans_target, trn_target, bs, epc, imglist, use_existing=False):
