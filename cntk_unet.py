@@ -93,10 +93,11 @@ def create_model(input):
 
     return conv10
 
-def dice_coefficient(x, y):
+def dice_coefficient(x, y, totalpix):
     # https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
-    intersection = C.reduce_sum(x * y)
+    intersection = C.reduce_sum(C.abs(x - y)) #差の絶対値の誤差
+    print(intersection)
 
-    return 2 * intersection / (C.reduce_sum(x) + C.reduce_sum(y))
+    return intersection
 
     
