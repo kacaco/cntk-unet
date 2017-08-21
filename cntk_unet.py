@@ -7,6 +7,7 @@ import cntk
 from cntk.layers import Convolution, MaxPooling, Dense
 from cntk.initializer import glorot_uniform
 from cntk.ops import relu, sigmoid, input_variable
+from cntk.cntk_py import squared_error
 
 from cntk.io import transforms
 #https://github.com/usuyama/cntk_unet/blob/master/cntk_unet.py
@@ -93,11 +94,8 @@ def create_model(input):
 
     return conv10
 
-def dice_coefficient(x, y, totalpix):
+def dice_coefficient(x, y):
     # https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
-    intersection = C.reduce_sum(C.abs(x - y)) #差の絶対値の誤差
-    print(intersection)
-
-    return intersection
-
-    
+    #intersection = C.reduce_sum(x - y)
+    err = squared_error(x,y,"se")
+    return err #2 * intersection / (C.reduce_sum(x) + C.reduce_sum(y))
