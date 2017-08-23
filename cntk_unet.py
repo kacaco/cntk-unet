@@ -7,7 +7,7 @@ import cntk
 from cntk.layers import Convolution, MaxPooling, Dense
 from cntk.initializer import glorot_uniform
 from cntk.ops import relu, sigmoid, input_variable
-from cntk.cntk_py import squared_error
+from cntk.cntk_py import binary_cross_entropy
 
 from cntk.io import transforms
 #https://github.com/usuyama/cntk_unet/blob/master/cntk_unet.py
@@ -97,5 +97,5 @@ def create_model(input):
 def dice_coefficient(x, y):
     # https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
     #intersection = C.reduce_sum(x - y)
-    err = squared_error(x,y,"se")
+    err = binary_cross_entropy(x,y)
     return err #2 * intersection / (C.reduce_sum(x) + C.reduce_sum(y))
