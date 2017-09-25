@@ -4,9 +4,9 @@ import sys
 import os
 import cntk as C
 import cntk
-from cntk.layers import Convolution, MaxPooling, Dense
+from cntk.layers import Convolution, MaxPooling, Dense, ConvolutionTranspose2D
 from cntk.initializer import glorot_uniform
-from cntk.ops import relu, sigmoid, input_variable, convolution_transpose
+from cntk.ops import relu, sigmoid, input_variable
 from cntk.cntk_py import squared_error
 
 from cntk.io import transforms
@@ -15,9 +15,15 @@ from cntk.io import transforms
 #https://stackoverflow.com/questions/43079648/cntk-how-to-define-upsampling2d
 def UpSampling2D(x):
     xr = C.reshape(x, (x.shape[0], x.shape[1], 1, x.shape[2], 1))
+    #print(x.shape[0])
+    #print(x.shape[1])
+    #print(x.shape[2])
+
+    #xr = convolution_transpose((2,2),)
     xx = C.splice(xr, xr, axis=-1) # axis=-1 refers to the last axis
     xy = C.splice(xx, xx, axis=-3) # axis=-3 refers to the middle axis
     r = C.reshape(xy, (x.shape[0], x.shape[1] * 2, x.shape[2] * 2))
+
     '''
     print ("upsampling")
     print(xr.shape)
@@ -59,43 +65,47 @@ def create_model(input):
     print("pool4"+str(pool4.shape))
 
     print("conv5"+str(conv5.shape))
-    up5 =UpSampling2D(conv5)
-    print("upsamplingC5"+str(up5.shape))
+    #up5 =UpSampling2D(conv5)
+    #print("upsamplingC5"+str(up5.shape))
 
-
-    #print("upsamplingC5"+str(C
-    # .reshape(up5,conv4.shape[]).shape))
-    ##some how we need crop this conv4
-    #a = cntk.io.transforms.crop(crop_type='center', crop_size=(2, 2))(conv4)
-    #print("crop" + str(a))
-
-    ##up7 = C.splice(UpSampling2D(conv4), conv3, axis=0)
-    #print("up6"+str(up6))
-
-    conv6 = Convolution((3,3), 512, init=glorot_uniform(), activation=relu, pad=True)(up5)
+    #up convolution
+    deconv6 = ConvolutionTranspose2D((2,2),512,strides=2,pad=False,activation=C.relu)(conv5)
+    print("deconv6" + str(deconv6.shape))
+    upconv6 = C.splice(deconv6, conv4, axis=0)
+    print("upconv6" + str(upconv6.shape))
+    conv6 = Convolution((3,3), 512, init=glorot_uniform(), activation=relu, pad=True)(upconv6)
     conv6 = Convolution((3,3), 512, init=glorot_uniform(), activation=relu, pad=True)(conv6)
     print("conv6"+str(conv6.shape))
-    print("up6"+str((UpSampling2D(conv6)).shape))
-    up7 = C.splice(UpSampling2D(conv6), conv3, axis=0)
-    conv7 = Convolution((3,3), 256, init=glorot_uniform(), activation=relu, pad=True)(up7)
+
+    #up convolution
+    deconv7 = ConvolutionTranspose2D((2,2),256,strides=2,pad=False,activation=C.relu)(conv6)
+    print("deconv7" + str(deconv7.shape))
+    upconv7 = C.splice(deconv7, conv3, axis=0)
+    print("upconv7" + str(upconv7.shape))
+
+    conv7 = Convolution((3,3), 256, init=glorot_uniform(), activation=relu, pad=True)(upconv7)
     conv7 = Convolution((3,3), 256, init=glorot_uniform(), activation=relu, pad=True)(conv7)
     print("conv7"+str(conv7.shape))
-    print("up8"+str((UpSampling2D(conv7)).shape))
 
-    up8 = C.splice(UpSampling2D(conv7), conv2, axis=0)
-    conv8 = Convolution((3,3), 128, init=glorot_uniform(), activation=relu, pad=True)(up8)
+    deconv8 = ConvolutionTranspose2D((2,2),128,strides=2,pad=False,activation=C.relu)(conv7)
+    print("(deconv8)"+str(deconv8.shape))
+    upconv8 = C.splice(deconv8, conv2, axis=0)
+    print("upconv8"+str(upconv8.shape))
+
+    #up8 = C.splice(UpSampling2D(conv7), conv2, axis=0)
+    conv8 = Convolution((3,3), 128, init=glorot_uniform(), activation=relu, pad=True)(upconv8)
     conv8 = Convolution((3,3), 128, init=glorot_uniform(), activation=relu, pad=True)(conv8)
+    print("conv8"+str(conv8.shape))
 
-    up9 = C.splice(UpSampling2D(conv8), conv1, axis=0)
-    conv9 = Convolution((3,3), 64, init=glorot_uniform(), activation=relu, pad=True)(up9)
+    deconv9 = ConvolutionTranspose2D((2,2),64,strides=2,pad=False,activation=C.relu)(conv8)
+    print("deconv9"+str(deconv9.shape))
+    upconv9 = C.splice(deconv9, conv1, axis=0)
+    print("upconv9"+str(upconv9.shape))
+
+    #up9 = C.splice(UpSampling2D(conv8), conv1, axis=0)
+    conv9 = Convolution((3,3), 64, init=glorot_uniform(), activation=relu, pad=True)(upconv9)
     conv9 = Convolution((3,3), 64, init=glorot_uniform(), activation=relu, pad=True)(conv9)
-
+    print("conv9" + str(conv9.shape))
     conv10 = Convolution((1,1), 1, init=glorot_uniform(), activation=sigmoid, pad=True)(conv9)
 
     return conv10
-
-def dice_coefficient(x, y):
-    # https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
-    #intersection = C.reduce_sum(x - y)
-    err = squared_error(x,y,"se")
-    return err #2 * intersection / (C.reduce_sum(x) + C.reduce_sum(y))
